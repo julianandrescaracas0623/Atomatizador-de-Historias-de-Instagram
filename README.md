@@ -1,5 +1,7 @@
 # Automatize Histories
 
+![CI](https://github.com/julianandrescaracas0623/Atomatizador-de-Historias-de-Instagram/actions/workflows/ci.yml/badge.svg)
+
 App web para programar Stories y publicarlas en **una** cuenta de Instagram Business/Creator con la Instagram Graph API.
 
 Diseño: [diseño_app_automatizacion_stories.md](diseño_app_automatizacion_stories.md).
@@ -99,3 +101,24 @@ Sin túnel puedes programar y ver la cola; al llegar la hora el worker fallará 
 | `IG_APP_ID` / `IG_APP_SECRET` | Opcional: `debug_token` para avisar si el token vence en ≤ 7 días |
 
 El tope de publicaciones Graph se consulta en `/{ig-user-id}/content_publishing_limit`. Si ese endpoint no responde, se usa el conteo local (100 / 24 h).
+
+## GitHub Pages (frontend)
+
+El CI/CD corre en **Ubuntu 24.04 LTS**. En cada push a `main`:
+
+1. Compila el backend (`compileall`).
+2. Lint / typecheck / build del frontend.
+3. Publica `frontend/dist` en GitHub Pages.
+
+URL del front: `https://julianandrescaracas0623.github.io/Atomatizador-de-Historias-de-Instagram/`
+
+GitHub Pages **solo sirve el frontend**. El API, el worker y Postgres deben seguir en un host con HTTPS (túnel, VPS, etc.).
+
+### Una sola vez en GitHub
+
+1. **Settings → Pages → Source:** GitHub Actions.
+2. **Settings → Secrets and variables → Actions → Variables:** crea `VITE_API_ORIGIN` con la URL pública del API, sin barra final. Ejemplo: `https://boolean-console-threatened-recovery.trycloudflare.com`
+3. En el `.env` del backend, añade el origen de Pages a `CORS_ORIGINS`:
+   `https://julianandrescaracas0623.github.io`
+
+Sin `VITE_API_ORIGIN` el sitio se publica, pero el login no llega al API.

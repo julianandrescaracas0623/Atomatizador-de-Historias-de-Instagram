@@ -2,6 +2,18 @@ import type { InstagramStatus, Story } from "./types";
 
 const TOKEN_KEY = "ah_token";
 
+function apiOrigin(): string {
+  if (!import.meta.env.PROD) return "";
+  return String(import.meta.env.VITE_API_ORIGIN ?? "").replace(/\/$/, "");
+}
+
+export function publicUrl(path: string): string {
+  if (path.startsWith("http://") || path.startsWith("https://") || path.startsWith("blob:")) {
+    return path;
+  }
+  return `${apiOrigin()}${path}`;
+}
+
 export function getToken(): string | null {
   return sessionStorage.getItem(TOKEN_KEY);
 }
@@ -29,7 +41,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!(init.body instanceof FormData) && init.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
-  const response = await fetch(path, { ...init, headers });
+  const response = await fetch(publicUrl(path), { ...init, headers });
   if (response.status === 204) return undefined as T;
   const text = await response.text();
   let data: unknown = null;

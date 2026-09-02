@@ -6,8 +6,11 @@ import { defineConfig, loadEnv } from "vite";
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const apiOrigin = env.VITE_API_ORIGIN || "http://localhost:8000";
+  const rawBase = env.VITE_BASE_PATH || "/";
+  const base = rawBase.endsWith("/") ? rawBase : `${rawBase}/`;
 
   return {
+    base,
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {

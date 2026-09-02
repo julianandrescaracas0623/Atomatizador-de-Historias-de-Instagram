@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { createStory, deleteStory } from "./api";
+import { createStory, deleteStory, publicUrl } from "./api";
 import { DeleteConfirmDialog, StoryList, StoryPreview } from "./StoryComponents";
 import { useStories } from "./StoryProvider";
 import { defaultScheduleLocal, filterQueue, formatWhen } from "./storyUtils";
@@ -55,7 +55,7 @@ export function QueuePage() {
     return () => URL.revokeObjectURL(url);
   }, [file]);
 
-  const plateSrc = previewUrl ?? (nextUp ? nextUp.media_url : null);
+  const plateSrc = previewUrl ?? (nextUp ? publicUrl(nextUp.media_url) : null);
   const plateIsVideo = file ? file.type.startsWith("video") : nextUp?.media_type === "video";
 
   async function onSchedule(event: FormEvent) {

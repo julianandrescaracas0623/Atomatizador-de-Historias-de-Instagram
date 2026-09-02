@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { publicUrl } from "./api";
 import { formatWhen, STATUS_BADGE, STATUS_LABEL } from "./storyUtils";
 import type { Story } from "./types";
 
@@ -84,10 +85,10 @@ export function StoryList({ stories, emptyMessage, actionLabel, onAction, action
           <div className="flex min-w-0 flex-1 gap-3">
             <Avatar className="size-16 shrink-0 rounded-md sm:size-20">
               {item.media_type === "video" ? (
-                <video src={item.media_url} muted className="size-full object-cover" />
+                <video src={publicUrl(item.media_url)} muted className="size-full object-cover" />
               ) : (
                 <>
-                  <AvatarImage src={item.media_url} alt="" className="object-cover" />
+                  <AvatarImage src={publicUrl(item.media_url)} alt="" className="object-cover" />
                   <AvatarFallback>IG</AvatarFallback>
                 </>
               )}
