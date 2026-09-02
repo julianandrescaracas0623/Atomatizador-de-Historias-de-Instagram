@@ -1,0 +1,19 @@
+---
+description: Stack y convenciones de Automatize Histories (FastAPI + React + PostgreSQL)
+alwaysApply: true
+---
+
+# Stack
+
+- Backend: Python FastAPI, Pydantic v2, SQLAlchemy 2, Alembic, httpx
+- Frontend: React + TypeScript + Vite
+- Base de datos: PostgreSQL
+- Una sola cuenta Instagram (`IG_USER_ID`). No diseñar multi-cuenta.
+- Zona horaria: `America/Bogota` (`APP_TIMEZONE`)
+- Secretos solo en backend/env: `IG_ACCESS_TOKEN`, `IG_USER_ID`, `APP_PUBLIC_BASE_URL`, JWT secret, DB URL. Nunca en el frontend.
+- Auth: login usuario/contraseña obligatorio (JWT o cookie httpOnly)
+- Archivos en `media/` servidos por FastAPI en HTTPS público; Instagram debe poder descargarlos. Localhost no sirve para publicar de verdad.
+- Scheduler con lock (`SELECT … FOR UPDATE SKIP LOCKED`) para no publicar dos veces
+- Validar formato Instagram antes de guardar, no a la hora de publicar
+- Documento de diseño: `diseño_app_automatizacion_stories.md`
+- Al publicar Stories, seguir `.cursor/skills/instagram-stories-api/SKILL.md`
