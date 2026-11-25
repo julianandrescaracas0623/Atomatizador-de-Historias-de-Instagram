@@ -16,6 +16,7 @@ class MediaType(str, enum.Enum):
 
 
 class StoryStatus(str, enum.Enum):
+    draft = "draft"  # creado por un agente; no se publica hasta que un humano lo aprueba
     pending = "pending"
     publishing = "publishing"
     published = "published"

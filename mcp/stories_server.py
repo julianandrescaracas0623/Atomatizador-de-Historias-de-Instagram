@@ -118,6 +118,17 @@ def build_server(api: StoriesApi | None = None, upload_dir: str | None = None) -
         params = {"status": status} if status else None
         return api.request("GET", "/api/stories", params=params)
 
+    def _upload(file_path: str, scheduled_at: str, draft: bool) -> Any:
+        path = resolve_upload(file_path, upload_dir)
+        mime = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+        with path.open("rb") as handle:
+            return api.request(
+                "POST",
+                "/api/stories",
+                data={"scheduled_at": scheduled_at, "draft": "true" if draft else "false"},
+                files={"file": (path.name, handle.read(), mime)},
+            )
+
     @mcp.tool()
     def schedule_story(file_path: str, scheduled_at: str) -> Any:
         """Programa una historia desde un archivo de la carpeta permitida.
@@ -125,15 +136,15 @@ def build_server(api: StoriesApi | None = None, upload_dir: str | None = None) -
         scheduled_at en ISO 8601 con hora local de Colombia, por ejemplo 2026-12-01T19:00.
         Devuelve la historia en estado pending; el worker la publica a esa hora.
         """
-        path = resolve_upload(file_path, upload_dir)
-        mime = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
-        with path.open("rb") as handle:
-            return api.request(
-                "POST",
-                "/api/stories",
-                data={"scheduled_at": scheduled_at},
-                files={"file": (path.name, handle.read(), mime)},
-            )
+        return _upload(file_path, scheduled_at, draft=False)
+
+    @mcp.tool()
+    def create_draft(file_path: str, scheduled_at: str) -> Any:
+        """Crea un borrador para revisión humana. No se publica hasta que el usuario lo apruebe en la web.
+
+        scheduled_at en ISO 8601 con hora local de Colombia. Devuelve la historia en estado draft.
+        """
+        return _upload(file_path, scheduled_at, draft=True)
 
     @mcp.tool()
     def cancel_story(story_id: str) -> Any:

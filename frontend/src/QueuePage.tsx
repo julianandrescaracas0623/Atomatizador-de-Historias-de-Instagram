@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { createStory, deleteStory, publicUrl } from "./api";
+import { approveStory, createStory, deleteStory, publicUrl } from "./api";
 import { DeleteConfirmDialog, StoryList, StoryPreview } from "./StoryComponents";
 import { useStories } from "./StoryProvider";
 import { defaultScheduleLocal, filterQueue, formatWhen } from "./storyUtils";
@@ -80,6 +80,18 @@ export function QueuePage() {
       setError(err instanceof Error ? err.message : "No se pudo programar");
     } finally {
       setBusy(false);
+    }
+  }
+
+  const drafts = useMemo(() => stories.filter((s) => s.status === "draft"), [stories]);
+
+  async function onApprove(story: Story) {
+    try {
+      await approveStory(story.id);
+      toast.success("Borrador aprobado y programado");
+      await refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudo aprobar");
     }
   }
 
@@ -173,6 +185,35 @@ export function QueuePage() {
             </form>
           </CardContent>
         </Card>
+
+        {drafts.length > 0 ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-xl">Borradores por aprobar</CardTitle>
+              <CardDescription>Nada se publica hasta que lo apruebes aquí.</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              {drafts.map((draft) => (
+                <div key={draft.id} className="flex flex-col gap-3 rounded-md border p-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">
+                      {draft.media_type === "video" ? "Video" : "Imagen"} · {formatWhen(draft.scheduled_at)}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">{draft.filename}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button className="min-h-11" onClick={() => onApprove(draft)}>
+                      Aprobar
+                    </Button>
+                    <Button variant="outline" className="min-h-11" onClick={() => setDeleteTarget(draft)}>
+                      Descartar
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        ) : null}
 
         <Card>
           <CardHeader>

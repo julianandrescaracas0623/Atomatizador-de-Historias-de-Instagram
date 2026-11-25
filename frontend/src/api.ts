@@ -88,6 +88,10 @@ export function createStory(file: File, scheduledAt: string) {
   return request<Story>("/api/stories", { method: "POST", body });
 }
 
+export function approveStory(id: string) {
+  return request<Story>(`/api/stories/${id}/approve`, { method: "POST" });
+}
+
 export function deleteStory(id: string) {
   return request<void>(`/api/stories/${id}`, { method: "DELETE" });
 }

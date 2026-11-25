@@ -1,5 +1,5 @@
 export type MediaType = "image" | "video";
-export type StoryStatus = "pending" | "publishing" | "published" | "failed";
+export type StoryStatus = "draft" | "pending" | "publishing" | "published" | "failed";
 
 export type Story = {
   id: string;
