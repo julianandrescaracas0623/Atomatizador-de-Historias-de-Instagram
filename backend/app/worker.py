@@ -9,9 +9,13 @@ from sqlalchemy import or_, select
 from app.config import get_settings
 from app.db import SessionLocal
 from app.instagram.client import InstagramClient, InstagramError
-from app.models import ScheduledStory, StoryStatus
+from app.models import PostType, ScheduledStory, StoryStatus
 
 logger = logging.getLogger(__name__)
+
+
+def _media_kind(filename: str) -> str:
+    return "video" if filename.lower().endswith((".mp4", ".mov")) else "image"
 
 # Tiempo máximo razonable para una publicación completa (incluye procesar video).
 STUCK_AFTER = timedelta(minutes=30)
@@ -94,8 +98,13 @@ def publish_story(story_id) -> None:
         story = db.get(ScheduledStory, story_id)
         if story is None:
             return
-        public_url = f"{settings.app_public_base_url.rstrip('/')}/media/{story.filename}"
-        media_id = client.publish_story(public_url, story.media_type.value)
+        base = settings.app_public_base_url.rstrip("/")
+        if story.post_type == PostType.story:
+            media_id = client.publish_story(f"{base}/media/{story.filename}", story.media_type.value)
+        else:
+            files = [story.filename, *(story.extra_filenames or [])]
+            items = [(f"{base}/media/{name}", _media_kind(name)) for name in files]
+            media_id = client.publish_post(story.post_type.value, items, story.caption)
         story.status = StoryStatus.published
         story.instagram_media_id = media_id
         story.error_message = None

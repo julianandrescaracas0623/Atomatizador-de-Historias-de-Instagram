@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.db import SessionLocal
-from app.routers import auth, instagram, media, stories
+from app.routers import auth, instagram, media, posts, stories
 from app.seed import seed_user
 
 
@@ -40,6 +40,7 @@ app.add_middleware(
 )
 app.include_router(auth.router)
 app.include_router(stories.router)
+app.include_router(posts.router)
 app.include_router(instagram.router)
 app.include_router(media.router)
 

@@ -67,6 +67,22 @@ def test_schedule_sends_bearer_and_multipart(tmp_path: Path):
     assert "pending" in json.dumps(result, default=str)
 
 
+def test_create_draft_sends_draft_flag(tmp_path: Path):
+    (tmp_path / "borrador.jpg").write_bytes(b"JPEG")
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/auth/login":
+            return login_ok(request)
+        seen["body"] = request.read()
+        return httpx.Response(201, json={"id": "d1", "status": "draft"})
+
+    server = build_server(api=make_api(handler), upload_dir=str(tmp_path))
+    asyncio.run(server.call_tool("create_draft", {"file_path": "borrador.jpg", "scheduled_at": "2026-12-02T09:00"}))
+    assert b'name="draft"' in seen["body"]
+    assert b"\r\ntrue\r\n" in seen["body"]
+
+
 def test_relogin_once_on_401():
     logins = {"n": 0}
 
@@ -97,5 +113,13 @@ def test_api_error_is_reported_with_detail():
 def test_server_exposes_only_scheduling_tools():
     server = build_server(api=make_api(login_ok), upload_dir=None)
     names = {tool.name for tool in asyncio.run(server.list_tools())}
-    assert names == {"instagram_status", "list_stories", "schedule_story", "cancel_story"}
+    assert names == {
+        "instagram_status",
+        "list_stories",
+        "schedule_story",
+        "create_draft",
+        "schedule_post",
+        "create_draft_post",
+        "cancel_story",
+    }
     assert not any(word in name for name in names for word in ("publish", "approve", "now"))

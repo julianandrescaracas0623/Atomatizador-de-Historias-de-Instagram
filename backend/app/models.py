@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, Enum, String, Text, Uuid
+from sqlalchemy import JSON, DateTime, Enum, String, Text, Uuid
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -15,7 +15,15 @@ class MediaType(str, enum.Enum):
     video = "video"
 
 
+class PostType(str, enum.Enum):
+    story = "story"
+    feed = "feed"          # una imagen en el feed
+    reel = "reel"          # un video como Reel
+    carousel = "carousel"  # 2 a 10 imágenes o videos
+
+
 class StoryStatus(str, enum.Enum):
+    draft = "draft"  # creado por un agente; no se publica hasta que un humano lo aprueba
     pending = "pending"
     publishing = "publishing"
     published = "published"
@@ -49,4 +57,13 @@ class ScheduledStory(Base):
     instagram_media_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     publishing_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    post_type: Mapped[PostType] = mapped_column(
+        Enum(PostType, name="post_type"),
+        nullable=False,
+        default=PostType.story,
+        server_default=PostType.story.value,
+    )
+    caption: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
+    # Archivos adicionales de un carrusel; `filename` es el primero.
+    extra_filenames: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list, server_default="[]")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)

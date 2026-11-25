@@ -52,6 +52,9 @@ def _to_out(story: ScheduledStory) -> StoryOut:
         id=story.id,
         filename=story.filename,
         media_type=story.media_type,
+        post_type=story.post_type,
+        caption=story.caption or "",
+        extra_count=len(story.extra_filenames or []),
         scheduled_at=story.scheduled_at,
         status=story.status,
         instagram_media_id=story.instagram_media_id,
@@ -104,9 +107,12 @@ def create_story(
     settings: Annotated[Settings, Depends(get_settings)],
     scheduled_at: Annotated[str, Form(...)],
     file: Annotated[UploadFile, File(...)],
+    draft: Annotated[bool, Form()] = False,
 ) -> StoryOut:
+    """Con draft=true la historia queda como borrador y no se publica hasta aprobarla."""
     when = _parse_scheduled_at(scheduled_at, settings)
-    _enforce_publish_cap(db, settings)
+    if not draft:
+        _enforce_publish_cap(db, settings)
     dest_dir = Path(settings.media_dir)
     dest_dir.mkdir(parents=True, exist_ok=True)
     prepared = prepare_upload(file, dest_dir, str(uuid.uuid4()))
@@ -114,7 +120,7 @@ def create_story(
         filename=prepared.filename,
         media_type=prepared.media_type,
         scheduled_at=when,
-        status=StoryStatus.pending,
+        status=StoryStatus.draft if draft else StoryStatus.pending,
     )
     db.add(story)
     db.commit()
@@ -135,6 +141,53 @@ def list_stories(
     return [_to_out(row) for row in rows]
 
 
+@router.post("/{story_id}/approve", response_model=StoryOut, summary="Aprobar un borrador")
+def approve_story(
+    story_id: uuid.UUID,
+    _: Annotated[User, Depends(current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> StoryOut:
+    """Pasa un borrador a pending para que el worker lo publique a su hora.
+
+    Solo la web lo llama. El MCP no expone esta acción: un agente no puede aprobar su propio contenido.
+    """
+    story = db.get(ScheduledStory, story_id)
+    if story is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No existe esa Story")
+    if story.status != StoryStatus.draft:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Solo se pueden aprobar borradores")
+    if story.scheduled_at <= datetime.now(timezone.utc):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La fecha programada ya pasó. Reprográmala antes de aprobar.",
+        )
+    _enforce_publish_cap(db, settings)
+    story.status = StoryStatus.pending
+    db.commit()
+    db.refresh(story)
+    return _to_out(story)
+
+
+@router.patch("/{story_id}", response_model=StoryOut, summary="Reprogramar un borrador o una Story pendiente")
+def reschedule_story(
+    story_id: uuid.UUID,
+    _: Annotated[User, Depends(current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    scheduled_at: Annotated[str, Form(...)],
+) -> StoryOut:
+    story = db.get(ScheduledStory, story_id)
+    if story is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No existe esa Story")
+    if story.status not in (StoryStatus.draft, StoryStatus.pending):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Solo se reprograman borradores o pendientes")
+    story.scheduled_at = _parse_scheduled_at(scheduled_at, settings)
+    db.commit()
+    db.refresh(story)
+    return _to_out(story)
+
+
 @router.delete("/{story_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Eliminar una Story")
 def delete_story(
     story_id: uuid.UUID,
@@ -150,12 +203,13 @@ def delete_story(
             status_code=status.HTTP_409_CONFLICT,
             detail="No se puede eliminar una Story mientras se publica",
         )
-    if story.status not in (StoryStatus.pending, StoryStatus.published, StoryStatus.failed):
+    if story.status not in (StoryStatus.draft, StoryStatus.pending, StoryStatus.published, StoryStatus.failed):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="No se puede eliminar una Story en este estado",
         )
-    path = Path(settings.media_dir) / story.filename
+    paths = [Path(settings.media_dir) / name for name in [story.filename, *(story.extra_filenames or [])]]
     db.delete(story)
     db.commit()
-    path.unlink(missing_ok=True)
+    for path in paths:
+        path.unlink(missing_ok=True)

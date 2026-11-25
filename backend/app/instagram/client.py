@@ -118,6 +118,63 @@ class InstagramClient:
         self.wait_for_container(creation_id, is_video=media_type == "video")
         return self.publish_container(creation_id)
 
+    def _create_container(self, params: dict[str, str]) -> str:
+        payload = self._request("POST", f"{self.settings.ig_user_id}/media", params=params)
+        creation_id = payload.get("id")
+        if not creation_id:
+            raise InstagramError("Instagram no devolvió id de contenedor", payload)
+        return str(creation_id)
+
+    def publish_post(self, post_type: str, items: list[tuple[str, str]], caption: str) -> str:
+        """Publica feed, reel o carrusel. items: [(url_publica, 'image' | 'video'), ...].
+
+        Sigue la documentación de Content Publishing:
+        - feed: una imagen con image_url y caption.
+        - reel: un video con media_type=REELS y video_url.
+        - carrusel: cada hijo con is_carousel_item=true (sin caption), luego un contenedor
+          padre con media_type=CAROUSEL y children separados por coma.
+        """
+        if not self.configured:
+            raise InstagramError("Faltan IG_ACCESS_TOKEN o IG_USER_ID")
+
+        if post_type == "feed":
+            if len(items) != 1 or items[0][1] != "image":
+                raise InstagramError("Un post de feed necesita exactamente una imagen")
+            creation_id = self._create_container({"image_url": items[0][0], "caption": caption})
+            self.wait_for_container(creation_id, is_video=False)
+
+        elif post_type == "reel":
+            if len(items) != 1 or items[0][1] != "video":
+                raise InstagramError("Un Reel necesita exactamente un video")
+            creation_id = self._create_container(
+                {"media_type": "REELS", "video_url": items[0][0], "caption": caption}
+            )
+            self.wait_for_container(creation_id, is_video=True)
+
+        elif post_type == "carousel":
+            if not 2 <= len(items) <= 10:
+                raise InstagramError("Un carrusel necesita entre 2 y 10 archivos")
+            child_ids: list[str] = []
+            for url, kind in items:
+                params = {"is_carousel_item": "true"}
+                if kind == "video":
+                    params.update({"media_type": "VIDEO", "video_url": url})
+                else:
+                    params["image_url"] = url
+                child_ids.append(self._create_container(params))
+            for child_id, (_, kind) in zip(child_ids, items):
+                self.wait_for_container(child_id, is_video=kind == "video")
+            has_video = any(kind == "video" for _, kind in items)
+            creation_id = self._create_container(
+                {"media_type": "CAROUSEL", "children": ",".join(child_ids), "caption": caption}
+            )
+            self.wait_for_container(creation_id, is_video=has_video)
+
+        else:
+            raise InstagramError(f"Tipo de post no soportado: {post_type}")
+
+        return self.publish_container(creation_id)
+
     def get_account(self) -> dict[str, Any]:
         if not self.configured:
             raise InstagramError("Faltan IG_ACCESS_TOKEN o IG_USER_ID")

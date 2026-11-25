@@ -1,13 +1,22 @@
-import type { Story, StoryStatus } from "./types";
+import type { PostType, Story, StoryStatus } from "./types";
 
 export const STATUS_LABEL: Record<StoryStatus, string> = {
+  draft: "Borrador",
   pending: "Pendiente",
   publishing: "Publicando",
   published: "Publicada",
   failed: "Fallida",
 };
 
+export const POST_LABEL: Record<PostType, string> = {
+  story: "Story",
+  feed: "Feed",
+  reel: "Reel",
+  carousel: "Carrusel",
+};
+
 export const STATUS_BADGE: Record<StoryStatus, string> = {
+  draft: "border-violet-500/40 bg-violet-500/10 text-violet-700 dark:text-violet-300",
   pending: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300",
   publishing: "border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300",
   published: "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",

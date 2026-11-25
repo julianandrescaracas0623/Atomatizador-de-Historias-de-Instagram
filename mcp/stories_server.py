@@ -118,6 +118,17 @@ def build_server(api: StoriesApi | None = None, upload_dir: str | None = None) -
         params = {"status": status} if status else None
         return api.request("GET", "/api/stories", params=params)
 
+    def _upload(file_path: str, scheduled_at: str, draft: bool) -> Any:
+        path = resolve_upload(file_path, upload_dir)
+        mime = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+        with path.open("rb") as handle:
+            return api.request(
+                "POST",
+                "/api/stories",
+                data={"scheduled_at": scheduled_at, "draft": "true" if draft else "false"},
+                files={"file": (path.name, handle.read(), mime)},
+            )
+
     @mcp.tool()
     def schedule_story(file_path: str, scheduled_at: str) -> Any:
         """Programa una historia desde un archivo de la carpeta permitida.
@@ -125,15 +136,54 @@ def build_server(api: StoriesApi | None = None, upload_dir: str | None = None) -
         scheduled_at en ISO 8601 con hora local de Colombia, por ejemplo 2026-12-01T19:00.
         Devuelve la historia en estado pending; el worker la publica a esa hora.
         """
-        path = resolve_upload(file_path, upload_dir)
-        mime = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
-        with path.open("rb") as handle:
+        return _upload(file_path, scheduled_at, draft=False)
+
+    @mcp.tool()
+    def create_draft(file_path: str, scheduled_at: str) -> Any:
+        """Crea un borrador para revisión humana. No se publica hasta que el usuario lo apruebe en la web.
+
+        scheduled_at en ISO 8601 con hora local de Colombia. Devuelve la historia en estado draft.
+        """
+        return _upload(file_path, scheduled_at, draft=True)
+
+    def _upload_post(post_type: str, file_paths: list[str], caption: str, scheduled_at: str, draft: bool) -> Any:
+        paths = [resolve_upload(p, upload_dir) for p in file_paths]
+        files = []
+        handles = []
+        try:
+            for path in paths:
+                handle = path.open("rb")
+                handles.append(handle)
+                mime = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+                files.append(("files", (path.name, handle.read(), mime)))
             return api.request(
                 "POST",
-                "/api/stories",
-                data={"scheduled_at": scheduled_at},
-                files={"file": (path.name, handle.read(), mime)},
+                "/api/posts",
+                data={
+                    "post_type": post_type,
+                    "scheduled_at": scheduled_at,
+                    "caption": caption,
+                    "draft": "true" if draft else "false",
+                },
+                files=files,
             )
+        finally:
+            for handle in handles:
+                handle.close()
+
+    @mcp.tool()
+    def schedule_post(post_type: str, file_paths: list[str], scheduled_at: str, caption: str = "") -> Any:
+        """Programa un post de feed, Reel o carrusel. post_type: feed, reel o carousel.
+
+        feed: 1 imagen. reel: 1 video. carousel: entre 2 y 10 archivos.
+        caption: texto del post (máximo 2200 caracteres). scheduled_at en hora de Bogotá, ISO 8601.
+        """
+        return _upload_post(post_type, file_paths, caption, scheduled_at, draft=False)
+
+    @mcp.tool()
+    def create_draft_post(post_type: str, file_paths: list[str], scheduled_at: str, caption: str = "") -> Any:
+        """Crea un borrador de post (feed, reel o carousel) para revisión humana. No se publica hasta aprobarlo en la web."""
+        return _upload_post(post_type, file_paths, caption, scheduled_at, draft=True)
 
     @mcp.tool()
     def cancel_story(story_id: str) -> Any:
