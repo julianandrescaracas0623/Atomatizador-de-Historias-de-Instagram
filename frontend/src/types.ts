@@ -1,10 +1,15 @@
 export type MediaType = "image" | "video";
 export type StoryStatus = "draft" | "pending" | "publishing" | "published" | "failed";
 
+export type PostType = "story" | "feed" | "reel" | "carousel";
+
 export type Story = {
   id: string;
   filename: string;
   media_type: MediaType;
+  post_type: PostType;
+  caption: string;
+  extra_count: number;
   scheduled_at: string;
   status: StoryStatus;
   instagram_media_id: string | null;

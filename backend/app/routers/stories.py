@@ -52,6 +52,9 @@ def _to_out(story: ScheduledStory) -> StoryOut:
         id=story.id,
         filename=story.filename,
         media_type=story.media_type,
+        post_type=story.post_type,
+        caption=story.caption or "",
+        extra_count=len(story.extra_filenames or []),
         scheduled_at=story.scheduled_at,
         status=story.status,
         instagram_media_id=story.instagram_media_id,
@@ -205,7 +208,8 @@ def delete_story(
             status_code=status.HTTP_409_CONFLICT,
             detail="No se puede eliminar una Story en este estado",
         )
-    path = Path(settings.media_dir) / story.filename
+    paths = [Path(settings.media_dir) / name for name in [story.filename, *(story.extra_filenames or [])]]
     db.delete(story)
     db.commit()
-    path.unlink(missing_ok=True)
+    for path in paths:
+        path.unlink(missing_ok=True)

@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import { approveStory, createStory, deleteStory, publicUrl } from "./api";
 import { DeleteConfirmDialog, StoryList, StoryPreview } from "./StoryComponents";
 import { useStories } from "./StoryProvider";
-import { defaultScheduleLocal, filterQueue, formatWhen } from "./storyUtils";
+import { POST_LABEL, defaultScheduleLocal, filterQueue, formatWhen } from "./storyUtils";
 import type { Story } from "./types";
 
 dayjs.extend(utc);
@@ -197,7 +197,7 @@ export function QueuePage() {
                 <div key={draft.id} className="flex flex-col gap-3 rounded-md border p-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="min-w-0">
                     <p className="text-sm font-medium">
-                      {draft.media_type === "video" ? "Video" : "Imagen"} · {formatWhen(draft.scheduled_at)}
+                      {POST_LABEL[draft.post_type]} · {formatWhen(draft.scheduled_at)}
                     </p>
                     <p className="truncate text-xs text-muted-foreground">{draft.filename}</p>
                   </div>

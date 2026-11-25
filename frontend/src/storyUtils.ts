@@ -1,4 +1,4 @@
-import type { Story, StoryStatus } from "./types";
+import type { PostType, Story, StoryStatus } from "./types";
 
 export const STATUS_LABEL: Record<StoryStatus, string> = {
   draft: "Borrador",
@@ -6,6 +6,13 @@ export const STATUS_LABEL: Record<StoryStatus, string> = {
   publishing: "Publicando",
   published: "Publicada",
   failed: "Fallida",
+};
+
+export const POST_LABEL: Record<PostType, string> = {
+  story: "Story",
+  feed: "Feed",
+  reel: "Reel",
+  carousel: "Carrusel",
 };
 
 export const STATUS_BADGE: Record<StoryStatus, string> = {

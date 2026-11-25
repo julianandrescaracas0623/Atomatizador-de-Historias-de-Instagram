@@ -146,6 +146,45 @@ def build_server(api: StoriesApi | None = None, upload_dir: str | None = None) -
         """
         return _upload(file_path, scheduled_at, draft=True)
 
+    def _upload_post(post_type: str, file_paths: list[str], caption: str, scheduled_at: str, draft: bool) -> Any:
+        paths = [resolve_upload(p, upload_dir) for p in file_paths]
+        files = []
+        handles = []
+        try:
+            for path in paths:
+                handle = path.open("rb")
+                handles.append(handle)
+                mime = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+                files.append(("files", (path.name, handle.read(), mime)))
+            return api.request(
+                "POST",
+                "/api/posts",
+                data={
+                    "post_type": post_type,
+                    "scheduled_at": scheduled_at,
+                    "caption": caption,
+                    "draft": "true" if draft else "false",
+                },
+                files=files,
+            )
+        finally:
+            for handle in handles:
+                handle.close()
+
+    @mcp.tool()
+    def schedule_post(post_type: str, file_paths: list[str], scheduled_at: str, caption: str = "") -> Any:
+        """Programa un post de feed, Reel o carrusel. post_type: feed, reel o carousel.
+
+        feed: 1 imagen. reel: 1 video. carousel: entre 2 y 10 archivos.
+        caption: texto del post (máximo 2200 caracteres). scheduled_at en hora de Bogotá, ISO 8601.
+        """
+        return _upload_post(post_type, file_paths, caption, scheduled_at, draft=False)
+
+    @mcp.tool()
+    def create_draft_post(post_type: str, file_paths: list[str], scheduled_at: str, caption: str = "") -> Any:
+        """Crea un borrador de post (feed, reel o carousel) para revisión humana. No se publica hasta aprobarlo en la web."""
+        return _upload_post(post_type, file_paths, caption, scheduled_at, draft=True)
+
     @mcp.tool()
     def cancel_story(story_id: str) -> Any:
         """Elimina una historia que esté pending, published o failed. No se puede cancelar mientras se publica."""
