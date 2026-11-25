@@ -92,6 +92,24 @@ export function approveStory(id: string) {
   return request<Story>(`/api/stories/${id}/approve`, { method: "POST" });
 }
 
+export type PostKind = "feed" | "reel" | "carousel";
+
+export function createPost(
+  files: File[],
+  postType: PostKind,
+  caption: string,
+  scheduledAt: string,
+  draft: boolean,
+) {
+  const body = new FormData();
+  body.append("post_type", postType);
+  body.append("scheduled_at", scheduledAt);
+  body.append("caption", caption);
+  body.append("draft", draft ? "true" : "false");
+  for (const file of files) body.append("files", file);
+  return request<Story>("/api/posts", { method: "POST", body });
+}
+
 export function deleteStory(id: string) {
   return request<void>(`/api/stories/${id}`, { method: "DELETE" });
 }

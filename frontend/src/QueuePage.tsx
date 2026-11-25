@@ -15,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import { approveStory, createStory, deleteStory, publicUrl } from "./api";
 import { DeleteConfirmDialog, StoryList, StoryPreview } from "./StoryComponents";
+import { PostComposer } from "./PostComposer";
 import { useStories } from "./StoryProvider";
 import { POST_LABEL, defaultScheduleLocal, filterQueue, formatWhen } from "./storyUtils";
 import type { Story } from "./types";
@@ -185,6 +186,8 @@ export function QueuePage() {
             </form>
           </CardContent>
         </Card>
+
+        <PostComposer onCreated={refresh} />
 
         {drafts.length > 0 ? (
           <Card>
