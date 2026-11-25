@@ -49,9 +49,10 @@ class InstagramClient:
     def _request(self, method: str, path: str, **kwargs: Any) -> dict[str, Any]:
         url = f"{self._base()}/{path.lstrip('/')}"
         params = dict(kwargs.pop("params", {}) or {})
-        params["access_token"] = self.settings.ig_access_token
+        headers = dict(kwargs.pop("headers", {}) or {})
+        headers["Authorization"] = f"Bearer {self.settings.ig_access_token}"
         try:
-            response = self._http.request(method, url, params=params, **kwargs)
+            response = self._http.request(method, url, params=params, headers=headers, **kwargs)
         except httpx.HTTPError as exc:
             raise InstagramError(f"No se pudo contactar Instagram: {exc}") from exc
         try:
@@ -152,10 +153,8 @@ class InstagramClient:
         try:
             response = self._http.get(
                 url,
-                params={
-                    "input_token": self.settings.ig_access_token,
-                    "access_token": app_token,
-                },
+                params={"input_token": self.settings.ig_access_token},
+                headers={"Authorization": f"Bearer {app_token}"},
                 timeout=20.0,
             )
             payload = response.json()

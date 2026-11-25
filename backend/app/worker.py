@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 from app.config import get_settings
 from app.db import SessionLocal
@@ -12,6 +12,48 @@ from app.instagram.client import InstagramClient, InstagramError
 from app.models import ScheduledStory, StoryStatus
 
 logger = logging.getLogger(__name__)
+
+# Tiempo máximo razonable para una publicación completa (incluye procesar video).
+STUCK_AFTER = timedelta(minutes=30)
+
+
+def recover_stuck_stories() -> int:
+    """Marca como fallidas las historias que quedaron en `publishing` por una caída.
+
+    No se reintentan automáticamente: Instagram pudo haber publicado la historia
+    antes de la caída, y reintentar la duplicaría. El usuario revisa en Instagram
+    y decide si la reprograma.
+    """
+    db = SessionLocal()
+    try:
+        cutoff = datetime.now(timezone.utc) - STUCK_AFTER
+        stmt = (
+            select(ScheduledStory)
+            .where(
+                ScheduledStory.status == StoryStatus.publishing,
+                or_(
+                    ScheduledStory.publishing_started_at.is_(None),
+                    ScheduledStory.publishing_started_at < cutoff,
+                ),
+            )
+            .with_for_update(skip_locked=True)
+        )
+        rows = list(db.scalars(stmt).all())
+        for row in rows:
+            row.status = StoryStatus.failed
+            row.error_message = (
+                "Interrumpida durante la publicación. Revisa en Instagram antes de reprogramarla "
+                "para no duplicarla."
+            )
+        db.commit()
+        if rows:
+            logger.warning("Recuperadas %s historias atascadas en publishing", len(rows))
+        return len(rows)
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
 
 
 def claim_due_stories(limit: int = 5) -> list[ScheduledStory]:
@@ -28,8 +70,10 @@ def claim_due_stories(limit: int = 5) -> list[ScheduledStory]:
             .with_for_update(skip_locked=True)
         )
         rows = list(db.scalars(stmt).all())
+        started = datetime.now(timezone.utc)
         for row in rows:
             row.status = StoryStatus.publishing
+            row.publishing_started_at = started
         db.commit()
         for row in rows:
             db.refresh(row)
@@ -81,8 +125,13 @@ def run_loop() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     settings = get_settings()
     logger.info("Worker iniciado (intervalo %ss)", settings.worker_interval_seconds)
+    try:
+        recover_stuck_stories()
+    except Exception:
+        logger.exception("No se pudo recuperar historias atascadas")
     while True:
         try:
+            recover_stuck_stories()
             claimed = claim_due_stories()
             for story in claimed:
                 publish_story(story.id)
