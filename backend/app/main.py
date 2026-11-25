@@ -13,6 +13,9 @@ from app.seed import seed_user
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     settings = get_settings()
+    if settings.app_env == "production" and settings.insecure_defaults():
+        missing = ", ".join(settings.insecure_defaults())
+        raise RuntimeError(f"Valores inseguros en producción: {missing}. Configúralos en el entorno.")
     Path(settings.media_dir).mkdir(parents=True, exist_ok=True)
     db = SessionLocal()
     try:

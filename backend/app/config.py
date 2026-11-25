@@ -11,6 +11,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    app_env: str = "development"
     database_url: str = "postgresql+psycopg://stories:stories@localhost:5432/stories"
     jwt_secret: str = "change-me"
     jwt_expire_minutes: int = 60 * 24 * 7
@@ -37,6 +38,15 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return [item.strip() for item in self.cors_origins.split(",") if item.strip()]
+
+    def insecure_defaults(self) -> list[str]:
+        """Nombres de las variables que siguen con valores de fábrica inseguros."""
+        found = []
+        if self.auth_password in {"", "admin"}:
+            found.append("AUTH_PASSWORD")
+        if self.jwt_secret in {"", "change-me"}:
+            found.append("JWT_SECRET")
+        return found
 
 
 @lru_cache
