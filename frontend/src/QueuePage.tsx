@@ -202,7 +202,9 @@ export function QueuePage() {
                     <p className="text-sm font-medium">
                       {POST_LABEL[draft.post_type]} · {formatWhen(draft.scheduled_at)}
                     </p>
-                    <p className="truncate text-xs text-muted-foreground">{draft.filename}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {draft.caption ? draft.caption : draft.filename}
+                    </p>
                   </div>
                   <div className="flex gap-2">
                     <Button className="min-h-11" onClick={() => onApprove(draft)}>
