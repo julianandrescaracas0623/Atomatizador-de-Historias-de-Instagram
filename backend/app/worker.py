@@ -3,13 +3,15 @@ from __future__ import annotations
 import logging
 import time
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from sqlalchemy import or_, select
 
 from app.config import get_settings
 from app.db import SessionLocal
 from app.instagram.client import InstagramClient, InstagramError
-from app.models import PostType, ScheduledStory, StoryStatus
+from app.linkedin.client import LinkedInClient, LinkedInError
+from app.models import Platform, PostType, ScheduledStory, StoryStatus
 
 logger = logging.getLogger(__name__)
 
@@ -93,24 +95,31 @@ def claim_due_stories(limit: int = 5) -> list[ScheduledStory]:
 def publish_story(story_id) -> None:
     settings = get_settings()
     db = SessionLocal()
-    client = InstagramClient(settings)
+    client: InstagramClient | None = None
+    linkedin: LinkedInClient | None = None
     try:
         story = db.get(ScheduledStory, story_id)
         if story is None:
             return
         base = settings.app_public_base_url.rstrip("/")
-        if story.post_type == PostType.story:
-            media_id = client.publish_story(f"{base}/media/{story.filename}", story.media_type.value)
+        if story.platform == Platform.linkedin:
+            linkedin = LinkedInClient(settings)
+            data = (Path(settings.media_dir) / story.filename).read_bytes()
+            media_id = linkedin.publish_image(story.caption, data)
         else:
-            files = [story.filename, *(story.extra_filenames or [])]
-            items = [(f"{base}/media/{name}", _media_kind(name)) for name in files]
-            media_id = client.publish_post(story.post_type.value, items, story.caption)
+            client = InstagramClient(settings)
+            if story.post_type == PostType.story:
+                media_id = client.publish_story(f"{base}/media/{story.filename}", story.media_type.value)
+            else:
+                files = [story.filename, *(story.extra_filenames or [])]
+                items = [(f"{base}/media/{name}", _media_kind(name)) for name in files]
+                media_id = client.publish_post(story.post_type.value, items, story.caption)
         story.status = StoryStatus.published
         story.instagram_media_id = media_id
         story.error_message = None
         db.commit()
         logger.info("Story %s publicada (%s)", story.id, media_id)
-    except InstagramError as exc:
+    except (InstagramError, LinkedInError) as exc:
         logger.warning("Story %s falló: %s", story_id, exc)
         story = db.get(ScheduledStory, story_id)
         if story is not None:
@@ -126,7 +135,10 @@ def publish_story(story_id) -> None:
             story.error_message = "Error interno al publicar"
             db.commit()
     finally:
-        client.close()
+        if client is not None:
+            client.close()
+        if linkedin is not None:
+            linkedin.close()
         db.close()
 
 

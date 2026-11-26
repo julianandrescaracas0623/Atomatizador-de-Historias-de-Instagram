@@ -123,3 +123,31 @@ def test_server_exposes_only_scheduling_tools():
         "cancel_story",
     }
     assert not any(word in name for name in names for word in ("publish", "approve", "now"))
+
+
+def test_create_draft_post_sends_linkedin_platform(tmp_path: Path):
+    (tmp_path / "foto.jpg").write_bytes(b"JPEGDATA")
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/auth/login":
+            return login_ok(request)
+        seen["body"] = request.read()
+        return httpx.Response(201, json={"id": "xyz", "status": "draft", "platform": "linkedin"})
+
+    server = build_server(api=make_api(handler), upload_dir=str(tmp_path))
+    asyncio.run(
+        server.call_tool(
+            "create_draft_post",
+            {
+                "post_type": "feed",
+                "file_paths": ["foto.jpg"],
+                "scheduled_at": "2026-12-01T19:00",
+                "caption": "Hola LinkedIn",
+                "platform": "linkedin",
+            },
+        )
+    )
+    assert b'name="platform"' in seen["body"]
+    assert b"linkedin" in seen["body"]
+    assert b'name="draft"' in seen["body"]

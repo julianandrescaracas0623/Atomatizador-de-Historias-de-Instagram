@@ -3,7 +3,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from app.models import MediaType, PostType, StoryStatus
+from app.models import MediaType, Platform, PostType, StoryStatus
 
 
 class LoginIn(BaseModel):
@@ -25,6 +25,7 @@ class StoryOut(BaseModel):
     filename: str
     media_type: MediaType
     post_type: PostType = PostType.story
+    platform: Platform = Platform.instagram
     caption: str = ""
     extra_count: int = 0
     scheduled_at: datetime

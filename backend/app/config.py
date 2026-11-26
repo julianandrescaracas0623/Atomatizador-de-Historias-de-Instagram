@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     ig_app_id: str = ""
     ig_app_secret: str = ""
 
+    linkedin_access_token: str = ""
+    linkedin_person_urn: str = ""  # urn:li:person:<id>, obtenido con el scope "profile"
+    linkedin_api_base: str = "https://api.linkedin.com"
+    linkedin_api_version: str = "202506"
+
     publishing_limit_fallback: int = 100
     worker_interval_seconds: int = 30
 

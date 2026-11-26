@@ -1,4 +1,4 @@
-import type { InstagramStatus, Story } from "./types";
+import type { InstagramStatus, Platform, Story } from "./types";
 
 const TOKEN_KEY = "ah_token";
 
@@ -100,9 +100,11 @@ export function createPost(
   caption: string,
   scheduledAt: string,
   draft: boolean,
+  platform: Platform = "instagram",
 ) {
   const body = new FormData();
   body.append("post_type", postType);
+  body.append("platform", platform);
   body.append("scheduled_at", scheduledAt);
   body.append("caption", caption);
   body.append("draft", draft ? "true" : "false");
