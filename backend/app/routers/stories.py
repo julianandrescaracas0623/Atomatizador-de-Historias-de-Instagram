@@ -53,6 +53,7 @@ def _to_out(story: ScheduledStory) -> StoryOut:
         filename=story.filename,
         media_type=story.media_type,
         post_type=story.post_type,
+        platform=story.platform,
         caption=story.caption or "",
         extra_count=len(story.extra_filenames or []),
         scheduled_at=story.scheduled_at,

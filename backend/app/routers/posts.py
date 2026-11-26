@@ -11,13 +11,14 @@ from app.config import Settings, get_settings
 from app.db import get_db
 from app.deps import current_user
 from app.media_validation import prepare_upload
-from app.models import MediaType, PostType, ScheduledStory, StoryStatus, User
+from app.models import MediaType, Platform, PostType, ScheduledStory, StoryStatus, User
 from app.routers.stories import _enforce_publish_cap, _parse_scheduled_at, _to_out
 from app.schemas import StoryOut
 
 router = APIRouter(prefix="/api/posts", tags=["posts"])
 
 MAX_CAPTION = 2200  # límite de caption de Instagram
+MAX_LINKEDIN_COMMENTARY = 3000
 CAROUSEL_MIN = 2
 CAROUSEL_MAX = 10
 
@@ -55,20 +56,38 @@ def create_post(
     files: Annotated[list[UploadFile], File(...)],
     caption: Annotated[str, Form()] = "",
     draft: Annotated[bool, Form()] = False,
+    platform: Annotated[str, Form()] = Platform.instagram.value,
 ) -> StoryOut:
     """Crea un post de feed, Reel o carrusel. Para Stories usa /api/stories."""
     try:
         kind = PostType(post_type)
     except ValueError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="post_type debe ser feed, reel o carousel") from exc
+    try:
+        target = Platform(platform)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="platform debe ser instagram o linkedin") from exc
     if kind == PostType.story:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Para Stories usa /api/stories")
-    if len(caption) > MAX_CAPTION:
+
+    if target == Platform.linkedin:
+        if kind != PostType.feed:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="LinkedIn solo admite post de feed con una imagen")
+        if not caption.strip():
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="LinkedIn necesita texto en el post")
+        if len(caption) > MAX_LINKEDIN_COMMENTARY:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail=f"El texto supera {MAX_LINKEDIN_COMMENTARY} caracteres",
+            )
+    elif len(caption) > MAX_CAPTION:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=f"El caption supera {MAX_CAPTION} caracteres")
 
     when = _parse_scheduled_at(scheduled_at, settings)
     _check_kinds(kind, files)
-    if not draft:
+    if target == Platform.linkedin and any(_is_video(u) for u in files):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="LinkedIn todavía no admite video")
+    if not draft and target == Platform.instagram:
         _enforce_publish_cap(db, settings)
 
     dest_dir = Path(settings.media_dir)
@@ -82,6 +101,7 @@ def create_post(
         scheduled_at=when,
         status=StoryStatus.draft if draft else StoryStatus.pending,
         post_type=kind,
+        platform=target,
         caption=caption,
         extra_filenames=[item.filename for item in rest],
     )

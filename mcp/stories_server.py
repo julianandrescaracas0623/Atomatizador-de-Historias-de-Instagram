@@ -146,7 +146,14 @@ def build_server(api: StoriesApi | None = None, upload_dir: str | None = None) -
         """
         return _upload(file_path, scheduled_at, draft=True)
 
-    def _upload_post(post_type: str, file_paths: list[str], caption: str, scheduled_at: str, draft: bool) -> Any:
+    def _upload_post(
+        post_type: str,
+        file_paths: list[str],
+        caption: str,
+        scheduled_at: str,
+        draft: bool,
+        platform: str = "instagram",
+    ) -> Any:
         paths = [resolve_upload(p, upload_dir) for p in file_paths]
         files = []
         handles = []
@@ -164,6 +171,7 @@ def build_server(api: StoriesApi | None = None, upload_dir: str | None = None) -
                     "scheduled_at": scheduled_at,
                     "caption": caption,
                     "draft": "true" if draft else "false",
+                    "platform": platform,
                 },
                 files=files,
             )
@@ -172,18 +180,34 @@ def build_server(api: StoriesApi | None = None, upload_dir: str | None = None) -
                 handle.close()
 
     @mcp.tool()
-    def schedule_post(post_type: str, file_paths: list[str], scheduled_at: str, caption: str = "") -> Any:
+    def schedule_post(
+        post_type: str,
+        file_paths: list[str],
+        scheduled_at: str,
+        caption: str = "",
+        platform: str = "instagram",
+    ) -> Any:
         """Programa un post de feed, Reel o carrusel. post_type: feed, reel o carousel.
 
+        platform: instagram (por defecto) o linkedin. LinkedIn solo admite feed con 1 imagen y texto obligatorio (máximo 3000 caracteres).
         feed: 1 imagen. reel: 1 video. carousel: entre 2 y 10 archivos.
-        caption: texto del post (máximo 2200 caracteres). scheduled_at en hora de Bogotá, ISO 8601.
+        caption: texto del post (máximo 2200 caracteres en Instagram). scheduled_at en hora de Bogotá, ISO 8601.
         """
-        return _upload_post(post_type, file_paths, caption, scheduled_at, draft=False)
+        return _upload_post(post_type, file_paths, caption, scheduled_at, draft=False, platform=platform)
 
     @mcp.tool()
-    def create_draft_post(post_type: str, file_paths: list[str], scheduled_at: str, caption: str = "") -> Any:
-        """Crea un borrador de post (feed, reel o carousel) para revisión humana. No se publica hasta aprobarlo en la web."""
-        return _upload_post(post_type, file_paths, caption, scheduled_at, draft=True)
+    def create_draft_post(
+        post_type: str,
+        file_paths: list[str],
+        scheduled_at: str,
+        caption: str = "",
+        platform: str = "instagram",
+    ) -> Any:
+        """Crea un borrador de post para revisión humana. No se publica hasta aprobarlo en la web.
+
+        platform: instagram (por defecto) o linkedin. LinkedIn solo admite feed con 1 imagen y texto obligatorio.
+        """
+        return _upload_post(post_type, file_paths, caption, scheduled_at, draft=True, platform=platform)
 
     @mcp.tool()
     def cancel_story(story_id: str) -> Any:

@@ -22,6 +22,11 @@ class PostType(str, enum.Enum):
     carousel = "carousel"  # 2 a 10 imágenes o videos
 
 
+class Platform(str, enum.Enum):
+    instagram = "instagram"
+    linkedin = "linkedin"  # por ahora solo post de feed con una imagen
+
+
 class StoryStatus(str, enum.Enum):
     draft = "draft"  # creado por un agente; no se publica hasta que un humano lo aprueba
     pending = "pending"
@@ -64,6 +69,12 @@ class ScheduledStory(Base):
         server_default=PostType.story.value,
     )
     caption: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
+    platform: Mapped[Platform] = mapped_column(
+        Enum(Platform, name="platform"),
+        nullable=False,
+        default=Platform.instagram,
+        server_default=Platform.instagram.value,
+    )
     # Archivos adicionales de un carrusel; `filename` es el primero.
     extra_filenames: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list, server_default="[]")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)

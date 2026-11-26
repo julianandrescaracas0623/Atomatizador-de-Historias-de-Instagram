@@ -200,7 +200,7 @@ export function QueuePage() {
                 <div key={draft.id} className="flex flex-col gap-3 rounded-md border p-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="min-w-0">
                     <p className="text-sm font-medium">
-                      {POST_LABEL[draft.post_type]} · {formatWhen(draft.scheduled_at)}
+                      {draft.platform === "linkedin" ? "LinkedIn · " : ""}{POST_LABEL[draft.post_type]} · {formatWhen(draft.scheduled_at)}
                     </p>
                     <p className="truncate text-xs text-muted-foreground">
                       {draft.caption ? draft.caption : draft.filename}

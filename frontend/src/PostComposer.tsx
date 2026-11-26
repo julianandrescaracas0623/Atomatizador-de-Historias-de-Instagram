@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createPost, type PostKind } from "./api";
+import type { Platform } from "./types";
 import { defaultScheduleLocal } from "./storyUtils";
 
 dayjs.extend(utc);
@@ -17,6 +18,12 @@ dayjs.extend(timezone);
 
 const BOGOTA = "America/Bogota";
 const MAX_CAPTION = 2200;
+const MAX_LINKEDIN_TEXT = 3000;
+
+const PLATFORM_LABEL: Record<Platform, string> = {
+  instagram: "Instagram",
+  linkedin: "LinkedIn (feed con 1 imagen, texto obligatorio)",
+};
 
 const KIND_LABEL: Record<PostKind, string> = {
   feed: "Feed (1 imagen)",
@@ -35,8 +42,12 @@ function isVideo(file: File): boolean {
 }
 
 /** Validación rápida en el cliente. El servidor valida de nuevo y es la fuente de verdad. */
-function validateFiles(kind: PostKind, files: File[]): string | null {
+function validateFiles(kind: PostKind, files: File[], platform: Platform): string | null {
   if (files.length === 0) return "Elige al menos un archivo";
+  if (platform === "linkedin") {
+    if (files.length !== 1 || isVideo(files[0])) return "LinkedIn necesita exactamente una imagen";
+    return null;
+  }
   if (kind === "feed") {
     if (files.length !== 1 || isVideo(files[0])) return "Un feed necesita exactamente una imagen";
   }
@@ -55,6 +66,7 @@ export function PostComposer({ onCreated }: { onCreated: () => void | Promise<vo
     return { date: dt.format("YYYY-MM-DD"), time: dt.format("HH:mm") };
   }, []);
 
+  const [platform, setPlatform] = useState<Platform>("instagram");
   const [kind, setKind] = useState<PostKind>("feed");
   const [files, setFiles] = useState<File[]>([]);
   const [caption, setCaption] = useState("");
@@ -69,21 +81,35 @@ export function PostComposer({ onCreated }: { onCreated: () => void | Promise<vo
     setError(null);
   }
 
+  function changePlatform(next: Platform) {
+    setPlatform(next);
+    setFiles([]);
+    setError(null);
+    if (next === "linkedin") setKind("feed");
+  }
+
+  const isLinkedin = platform === "linkedin";
+  const captionLimit = isLinkedin ? MAX_LINKEDIN_TEXT : MAX_CAPTION;
+
   async function submit(draft: boolean) {
-    const problem = validateFiles(kind, files);
+    const problem = validateFiles(kind, files, platform);
     if (problem) {
       setError(problem);
       return;
     }
-    if (caption.length > MAX_CAPTION) {
-      setError(`El caption supera ${MAX_CAPTION} caracteres`);
+    if (isLinkedin && !caption.trim()) {
+      setError("LinkedIn necesita texto en el post");
+      return;
+    }
+    if (caption.length > captionLimit) {
+      setError(`El texto supera ${captionLimit} caracteres`);
       return;
     }
     setBusy(true);
     setError(null);
     try {
       const when = dayjs.tz(`${date}T${time}`, BOGOTA).format("YYYY-MM-DDTHH:mm");
-      await createPost(files, kind, caption, when, draft);
+      await createPost(files, kind, caption, when, draft, platform);
       setFiles([]);
       setCaption("");
       toast.success(draft ? "Borrador guardado para revisión" : "Post programado");
@@ -100,7 +126,7 @@ export function PostComposer({ onCreated }: { onCreated: () => void | Promise<vo
       <CardHeader>
         <CardTitle className="text-xl">Crear post</CardTitle>
         <CardDescription>
-          Feed, Reel o carrusel. Guardar como borrador no publica nada hasta que lo apruebes en la cola.
+          Guardar como borrador no publica nada hasta que lo apruebes en la cola.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -118,11 +144,28 @@ export function PostComposer({ onCreated }: { onCreated: () => void | Promise<vo
           }}
         >
           <div className="flex flex-col gap-2">
+            <Label htmlFor="post-platform">Red</Label>
+            <select
+              id="post-platform"
+              className="min-h-11 rounded-md border bg-background px-3 text-sm"
+              value={platform}
+              onChange={(e) => changePlatform(e.target.value as Platform)}
+            >
+              {(Object.keys(PLATFORM_LABEL) as Platform[]).map((key) => (
+                <option key={key} value={key}>
+                  {PLATFORM_LABEL[key]}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-2">
             <Label htmlFor="post-kind">Tipo de post</Label>
             <select
               id="post-kind"
               className="min-h-11 rounded-md border bg-background px-3 text-sm"
               value={kind}
+              disabled={isLinkedin}
               onChange={(e) => changeKind(e.target.value as PostKind)}
             >
               {(Object.keys(KIND_LABEL) as PostKind[]).map((key) => (
@@ -141,8 +184,8 @@ export function PostComposer({ onCreated }: { onCreated: () => void | Promise<vo
                 <input
                   type="file"
                   className="sr-only"
-                  multiple={kind === "carousel"}
-                  accept={KIND_ACCEPT[kind]}
+                  multiple={kind === "carousel" && !isLinkedin}
+                  accept={isLinkedin ? "image/jpeg,image/png" : KIND_ACCEPT[kind]}
                   onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
                 />
               </label>
@@ -160,14 +203,14 @@ export function PostComposer({ onCreated }: { onCreated: () => void | Promise<vo
             <div className="flex items-center justify-between">
               <Label htmlFor="post-caption">Caption</Label>
               <span className="text-xs text-muted-foreground">
-                {caption.length}/{MAX_CAPTION}
+                {caption.length}/{captionLimit}
               </span>
             </div>
             <textarea
               id="post-caption"
               className="min-h-24 rounded-md border bg-background px-3 py-2 text-sm"
               value={caption}
-              maxLength={MAX_CAPTION + 1}
+              maxLength={captionLimit + 1}
               onChange={(e) => setCaption(e.target.value)}
               placeholder="Escribe el texto del post"
             />
